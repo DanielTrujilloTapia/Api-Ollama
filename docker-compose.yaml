@@ -1,0 +1,8 @@
+services:
+  ia-api:
+    build: .
+    container_name: ia-api
+    ports:
+      - "3001:3001"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
