@@ -138,5 +138,71 @@ export const queries = {
         CAST(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM SalesLT.SalesOrderHeader) AS DECIMAL(5,2)) AS Porcentaje
     FROM SalesLT.SalesOrderHeader soh
     GROUP BY soh.Status;
+  `,
+  
+  prediccion_ventas: `
+    SELECT 
+      YEAR(OrderDate) as Year,
+      MONTH(OrderDate) as Month,
+      SUM(TotalDue) as TotalSales
+    FROM SalesLT.SalesOrderHeader
+    GROUP BY YEAR(OrderDate), MONTH(OrderDate)
+    ORDER BY Year, Month
+  `,
+  
+  "clientes_riesgo_abandono": `
+    SELECT 
+      c.CustomerID,
+      c.FirstName,
+      c.LastName,
+      c.EmailAddress,
+      MAX(h.OrderDate) as LastOrderDate,
+      DATEDIFF(day, MAX(h.OrderDate), GETDATE()) as DaysSinceLastOrder,
+      COUNT(h.SalesOrderID) as TotalOrders,
+      AVG(h.TotalDue) as AvgOrderValue
+    FROM SalesLT.Customer c
+    LEFT JOIN SalesLT.SalesOrderHeader h ON c.CustomerID = h.CustomerID
+    GROUP BY c.CustomerID, c.FirstName, c.LastName, c.EmailAddress
+    HAVING COUNT(h.SalesOrderID) > 0
+    ORDER BY DaysSinceLastOrder DESC
+  `,
+  
+  "productos_tendencia": `
+    SELECT 
+      p.ProductID,
+      p.Name,
+      p.ProductNumber,
+      COUNT(d.SalesOrderDetailID) as TotalSold,
+      SUM(d.OrderQty) as TotalQuantity,
+      SUM(d.LineTotal) as TotalRevenue
+    FROM SalesLT.Product p
+    JOIN SalesLT.SalesOrderDetail d ON p.ProductID = d.ProductID
+    JOIN SalesLT.SalesOrderHeader h ON d.SalesOrderID = h.SalesOrderID
+    WHERE h.OrderDate >= DATEADD(month, -3, GETDATE())
+    GROUP BY p.ProductID, p.Name, p.ProductNumber
+    ORDER BY TotalQuantity DESC
+  `,
+  
+  "segmentacion_clientes": `
+    SELECT 
+      c.CustomerID,
+      c.FirstName,
+      c.LastName,
+      c.EmailAddress,
+      COUNT(h.SalesOrderID) as OrderCount,
+      SUM(h.TotalDue) as LifetimeValue,
+      DATEDIFF(day, MIN(h.OrderDate), MAX(h.OrderDate)) as CustomerDurationDays,
+      CASE
+        WHEN SUM(h.TotalDue) > 10000 THEN 'Alto Valor'
+        WHEN SUM(h.TotalDue) BETWEEN 5000 AND 10000 THEN 'Medio Valor'
+        ELSE 'Bajo Valor'
+      END as CustomerSegment
+    FROM SalesLT.Customer c
+    LEFT JOIN SalesLT.SalesOrderHeader h ON c.CustomerID = h.CustomerID
+    GROUP BY c.CustomerID, c.FirstName, c.LastName, c.EmailAddress
+    HAVING COUNT(h.SalesOrderID) > 0
+    ORDER BY LifetimeValue DESC
   `
 };
+
+
