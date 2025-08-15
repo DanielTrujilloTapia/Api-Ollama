@@ -140,6 +140,7 @@ export const queries = {
     GROUP BY soh.Status;
   `,
   
+  //#region  nuevas consultas prediccion
   prediccion_ventas: `
     SELECT 
       YEAR(OrderDate) as Year,
@@ -150,7 +151,7 @@ export const queries = {
     ORDER BY Year, Month
   `,
   
-  "clientes_riesgo_abandono": `
+  clientes_riesgo_abandono: `
     SELECT 
       c.CustomerID,
       c.FirstName,
@@ -167,7 +168,7 @@ export const queries = {
     ORDER BY DaysSinceLastOrder DESC
   `,
   
-  "productos_tendencia": `
+  productos_tendencia: `
     SELECT 
       p.ProductID,
       p.Name,
@@ -183,7 +184,7 @@ export const queries = {
     ORDER BY TotalQuantity DESC
   `,
   
-  "segmentacion_clientes": `
+  segmentacion_clientes: `
     SELECT 
       c.CustomerID,
       c.FirstName,
