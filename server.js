@@ -4,6 +4,7 @@ import cors from 'cors';
 import sql from 'mssql';
 import fetch from 'node-fetch';
 import { queries } from './consultas.js';
+import { consulta_db } from './consultas_ventas_digsm.js';
 
 const app = express();
 const port = 3001;
@@ -14,13 +15,28 @@ app.use(cors());
 const dbConfig = {
   user: 'DanielCT_SQLLogin_1',
   password: 'Trujillodani64',
-  server: 'TiendaMicroserviciosAutorApi.mssql.somee.com',
-  database: 'TiendaMicroserviciosAutorApi',
+  server: 'http://DatabaseIAPrediction.mssql.somee.com',
+  database: 'DatabaseIAPrediction',
   options: {
     encrypt: true,
     trustServerCertificate: true
   }
 };
+
+
+ const dbConfig_DIMGS = {
+  user: 'sa',
+  password: '123456',
+  server: 'localhost',   // tu máquina local
+  database: 'DMIDGS',   // la base de datos a la que quieres conectar
+  options: {
+    encrypt: false,             // en local normalmente es false
+    trustServerCertificate: true,
+    //instanceName: 'Emmanuel'    // tu instancia nombrada
+  }
+
+};
+
 
 async function interpretarPrompt(prompt) {
   const promptOllama = `
@@ -297,5 +313,62 @@ app.post('/api/predict/trending-products', async (req, res) => {
   } catch (error) {
     console.error('Error:', error);
     res.status(500).json({ error: 'Error en la predicción de productos' });
+  }
+});
+
+////////////////////////
+// CONSULTAS DB DMIGS //
+////////////////////////
+
+
+app.post('/api/predict/sales/DMIDGS', async (req, res) => {
+  try {
+    const pool = await sql.connect(dbConfig_DIMGS);
+    const result = await pool.request().query(consulta_db.prediccion_ventas);
+    await pool.close();
+
+    // Preparar prompt para la predicción
+    const prompt = `
+      Basado en los siguientes datos históricos de ventas:
+      ${JSON.stringify(result.recordset)}
+
+      Realiza una predicción de ventas para los próximos 3 meses considerando:
+      1. Tendencia histórica
+      2. Estacionalidad
+      3. Crecimiento promedio
+
+      Devuelve la predicción en formato JSON con:
+      - Meses proyectados
+      - Valores estimados
+      - Nivel de confianza (alto, medio, bajo)
+      - Factores clave que influyen
+    `;
+
+    // Llamada a la API de Qwen3
+    const iaResponse = await fetch('http://localhost:11434/api/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'qwen3:1.7b',
+        prompt: prompt,
+        stream: false
+      })
+    });
+
+    const data = await iaResponse.json();
+
+    // Intentamos parsear JSON; si falla, devolvemos el texto tal cual
+    let prediction;
+    try {
+      prediction = JSON.parse(data.response);
+    } catch {
+      prediction = { raw: data.response };
+    }
+
+    res.json(prediction);
+
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({ error: 'Error en la predicción de ventas' });
   }
 });
