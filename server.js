@@ -327,7 +327,6 @@ app.post('/api/predict/sales/DMIDGS', async (req, res) => {
     const result = await pool.request().query(consulta_db.prediccion_ventas);
     await pool.close();
 
-    // Preparar prompt para la predicción
     const prompt = `
       Basado en los siguientes datos históricos de ventas:
       ${JSON.stringify(result.recordset)}
@@ -337,19 +336,18 @@ app.post('/api/predict/sales/DMIDGS', async (req, res) => {
       2. Estacionalidad
       3. Crecimiento promedio
 
-      Devuelve la predicción en formato JSON con:
-      - Meses proyectados
-      - Valores estimados
-      - Nivel de confianza (alto, medio, bajo)
-      - Factores clave que influyen
+      ⚠️ Devuelve **únicamente** un objeto JSON válido con:
+      - meses_proyectados
+      - valores_estimados
+      - nivel_confianza
+      - factores_clave
     `;
 
-    // Llamada a la API de Qwen3
     const iaResponse = await fetch('http://localhost:11434/api/generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'qwen3:1.7b',
+        model: 'qwen3:30b',
         prompt: prompt,
         stream: false
       })
@@ -357,11 +355,16 @@ app.post('/api/predict/sales/DMIDGS', async (req, res) => {
 
     const data = await iaResponse.json();
 
-    // Intentamos parsear JSON; si falla, devolvemos el texto tal cual
     let prediction;
     try {
-      prediction = JSON.parse(data.response);
-    } catch {
+      // Buscar el primer bloque JSON dentro de la respuesta
+      const match = data.response.match(/\{[\s\S]*\}/);
+      if (match) {
+        prediction = JSON.parse(match[0]);
+      } else {
+        prediction = { raw: data.response };
+      }
+    } catch (err) {
       prediction = { raw: data.response };
     }
 
